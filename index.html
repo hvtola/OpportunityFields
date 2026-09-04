@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Opportunity Fields – Norway</title>
+
+  <!-- Leaflet 1.9.4 -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin="">
+  </script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #eef2f3;
+    }
+
+    .map-title {
+      background: rgba(255, 255, 255, 0.94);
+      padding: 8px 11px;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+      line-height: 1.25;
+    }
+
+    .map-title strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .map-title span {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #555;
+    }
+
+    .opacity-control {
+      background: rgba(255, 255, 255, 0.94);
+      padding: 8px 10px;
+      border-radius: 4px;
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+      font-size: 12px;
+    }
+
+    .opacity-control label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .opacity-control input {
+      width: 150px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="map"></div>
+
+  <script>
+    // Leaflet uses EPSG:3857 / Web Mercator by default.
+    const map = L.map("map", {
+      center: [64.7, 13.5],
+      zoom: 5,
+      minZoom: 3,
+      maxZoom: 18
+    });
+
+    // Kartverket topographic background map.
+    // Official Web Mercator Leaflet tile endpoint.
+    const kartverketTopo = L.tileLayer(
+      "https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png",
+      {
+        minZoom: 0,
+        maxZoom: 18,
+        attribution:
+          '&copy; <a href="https://www.kartverket.no/" target="_blank" rel="noopener">Kartverket</a>'
+      }
+    ).addTo(map);
+
+    // Opportunity Fields cached ArcGIS tile service.
+    // ArcGIS REST uses /tile/{level}/{row}/{column},
+    // equivalent here to Leaflet {z}/{y}/{x}.
+    const opportunityFields = L.tileLayer(
+      "https://tiles.arcgis.com/tiles/RZqsZuJkqUIXKe8f/arcgis/rest/services/OpportunityFields/MapServer/tile/{z}/{y}/{x}",
+      {
+        opacity: 0.80,
+        minZoom: 0,
+        maxZoom: 18,
+        attribution: "Opportunity Fields"
+      }
+    ).addTo(map);
+
+    // NVE / Varsom slope map (Bratthet 2024).
+    // Cached ArcGIS tiles in Web Mercator. Kept off by default and
+    // made selectable through the layer control below.
+    const bratthet = L.tileLayer(
+      "https://gis3.nve.no/arcgis/rest/services/wmts/Bratthet_2024/MapServer/tile/{z}/{y}/{x}",
+      {
+        opacity: 0.75,
+        minZoom: 5,
+        maxZoom: 16,
+        attribution: "Bratthet: NVE / Varsom"
+      }
+    );
+
+    // NVE / Varsom slope + avalanche runout map (Bratthet med utløp 2024).
+    // Cached ArcGIS tiles in Web Mercator. Kept off by default.
+    const bratthetMedUtlop = L.tileLayer(
+      "https://gis3.nve.no/arcgis/rest/services/wmts/Bratthet_med_utlop_2024/MapServer/tile/{z}/{y}/{x}",
+      {
+        opacity: 0.75,
+        minZoom: 5,
+        maxZoom: 16,
+        attribution: "Bratthet med utløp: NVE / Varsom"
+      }
+    );
+
+    // Layer control.
+    L.control.layers(
+      {
+        "Kartverket – Topografisk": kartverketTopo
+      },
+      {
+        "Opportunity Fields": opportunityFields,
+        "Varsom – Bratthetskart": bratthet,
+        "Varsom – Bratthet + utløp": bratthetMedUtlop
+      },
+      {
+        collapsed: false
+      }
+    ).addTo(map);
+
+    // Metric scale.
+    L.control.scale({
+      imperial: false,
+      metric: true
+    }).addTo(map);
+
+    // Map title.
+    const titleControl = L.control({ position: "topleft" });
+
+    titleControl.onAdd = function () {
+      const div = L.DomUtil.create("div", "map-title");
+      div.innerHTML =
+        "<strong>Opportunity Fields</strong>" +
+        "<span>Kartverket topographic background</span>";
+      return div;
+    };
+
+    titleControl.addTo(map);
+
+    // Overlay opacity slider.
+    const opacityControl = L.control({ position: "bottomright" });
+
+    opacityControl.onAdd = function () {
+      const div = L.DomUtil.create("div", "opacity-control");
+
+      div.innerHTML = `
+        <label for="overlay-opacity">Opportunity Fields opacity</label>
+        <input
+          id="overlay-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.80"
+          aria-label="Opportunity Fields opacity"
+        />
+
+        <label for="bratthet-opacity" style="margin-top:8px;">Varsom – Bratthetskart opacity</label>
+        <input
+          id="bratthet-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.75"
+          aria-label="Varsom bratthetskart opacity"
+        />
+
+        <label for="bratthet-utlop-opacity" style="margin-top:8px;">Varsom – Bratthet + utløp opacity</label>
+        <input
+          id="bratthet-utlop-opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value="0.75"
+          aria-label="Varsom bratthet med utløp opacity"
+        />
+      `;
+
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+
+      div
+        .querySelector("#overlay-opacity")
+        .addEventListener("input", function () {
+          opportunityFields.setOpacity(Number(this.value));
+        });
+
+      div
+        .querySelector("#bratthet-opacity")
+        .addEventListener("input", function () {
+          bratthet.setOpacity(Number(this.value));
+        });
+
+      div
+        .querySelector("#bratthet-utlop-opacity")
+        .addEventListener("input", function () {
+          bratthetMedUtlop.setOpacity(Number(this.value));
+        });
+
+      return div;
+    };
+
+    opacityControl.addTo(map);
+
+    // Initial view over mainland Norway.
+    map.fitBounds([
+      [57.5, 4.0],
+      [71.5, 31.5]
+    ]);
+  </script>
+</body>
+</html>
